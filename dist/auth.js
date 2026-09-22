@@ -1,53 +1,106 @@
 (()=>{
-const ADMIN_HASH='5b967cfa6d81528656fc6d658e92dfd03d7f9a1451d42afd86d29fe9eb78f483';
-const UKEY='bp_users_v3',PKEY='bp_projects_v3';
-const seed=[{id:'admin',name:'Администратор',login:'admin',hash:ADMIN_HASH,role:'admin'}];
-let users=JSON.parse(localStorage.getItem(UKEY)||'null')||seed;
+const PKEY='bp_projects_v3';
 let projects=JSON.parse(localStorage.getItem(PKEY)||'[]');
-let currentUser=null,currentProject=null;
-const q=s=>document.querySelector(s), qa=s=>[...document.querySelectorAll(s)];
+let currentProject=null;
+const q=s=>document.querySelector(s),qa=s=>[...document.querySelectorAll(s)];
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 const fmt=n=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Math.round(+n||0))+' ₽';
-const saveUsers=()=>localStorage.setItem(UKEY,JSON.stringify(users));
 const saveProjects=()=>localStorage.setItem(PKEY,JSON.stringify(projects));
-const hash=async v=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(v)))).map(b=>b.toString(16).padStart(2,'0')).join('');
-const workerName=id=>users.find(u=>u.id===id)?.name||'Не назначен';
-saveUsers();
-document.body.classList.add('bp-locked');
+
 document.body.insertAdjacentHTML('afterbegin',`
-<section class="bp-auth" id="bpAuth"><div class="bp-auth-form"><form class="bp-login-card" id="bpLoginForm"><div class="bp-auth-brand"><div class="bp-auth-logo">⌂</div><div>Best Paints<small>Калькулятор</small></div></div><h1>Вход в рабочий кабинет</h1><p>У каждого сотрудника свой логин, объекты и расчёты.</p><div class="bp-field"><label>Логин</label><input class="bp-input" id="bpLogin" autocomplete="username" required></div><div class="bp-field"><label>Пароль</label><input class="bp-input" id="bpPassword" type="password" autocomplete="current-password" required></div><button class="bp-login-btn">Войти</button><div class="bp-auth-error" id="bpLoginError"></div><div class="bp-login-note">Новых работников администратор добавляет после входа.<br><span class="bp-local-badge">Данные хранятся в этом браузере</span></div></form></div><div class="bp-auth-visual"><div><span>Best Paints · внутренняя система</span><h2>Сметы, материалы и прибыль по каждому объекту</h2><p>Один кабинет для руководителя, сметчика и рабочих.</p></div></div></section>
-<div class="bp-layer" id="bpProjectLayer"><form class="bp-modal" id="bpProjectForm"><div class="bp-modal-head"><h2>Новый объект</h2><button type="button" class="bp-close" data-bp-close="bpProjectLayer">×</button></div><div class="bp-form-grid"><div class="bp-field full"><label>Название объекта</label><input class="bp-input" id="bpProjectName" required placeholder="Например: Дом в КП Лесной"></div><div class="bp-field"><label>Заказчик</label><input class="bp-input" id="bpCustomer"></div><div class="bp-field"><label>Адрес</label><input class="bp-input" id="bpAddress"></div><div class="bp-field"><label>Стоимость договора, ₽</label><input class="bp-input" id="bpContract" type="number" min="0" value="0"></div><div class="bp-field"><label>Срок выполнения</label><input class="bp-input" id="bpDeadline" placeholder="30 дней"></div><div class="bp-field full"><label>Ответственный</label><select class="bp-input" id="bpAssignee"></select></div></div><div class="bp-modal-actions"><button type="button" class="bp-secondary" data-bp-close="bpProjectLayer">Отмена</button><button class="bp-main-btn">Создать объект</button></div></form></div>
-<div class="bp-layer" id="bpWorkersLayer"><div class="bp-modal"><div class="bp-modal-head"><div><h2>Сотрудники</h2><p style="margin:3px 0;color:#66706b;font-size:12px">Отдельный логин и пароль для каждого</p></div><button class="bp-close" data-bp-close="bpWorkersLayer">×</button></div><form id="bpWorkerForm"><div class="bp-form-grid"><div class="bp-field"><label>Имя</label><input class="bp-input" id="bpWorkerName" required></div><div class="bp-field"><label>Логин</label><input class="bp-input" id="bpWorkerLogin" required></div><div class="bp-field full"><label>Пароль</label><input class="bp-input" id="bpWorkerPassword" type="password" minlength="6" required></div></div><div class="bp-modal-actions"><button class="bp-main-btn">Добавить сотрудника</button></div></form><div class="bp-worker-list" id="bpWorkerList"></div></div></div>
+<div class="bp-layer" id="bpProjectLayer"><form class="bp-modal" id="bpProjectForm"><div class="bp-modal-head"><h2>Новый объект</h2><button type="button" class="bp-close" data-bp-close="bpProjectLayer">×</button></div><div class="bp-form-grid"><div class="bp-field full"><label>Название объекта</label><input class="bp-input" id="bpProjectName" required placeholder="Например: Дом в КП Лесной"></div><div class="bp-field"><label>Заказчик</label><input class="bp-input" id="bpCustomer"></div><div class="bp-field"><label>Адрес</label><input class="bp-input" id="bpAddress"></div><div class="bp-field"><label>Стоимость договора, ₽</label><input class="bp-input" id="bpContract" type="number" min="0" value="0"></div><div class="bp-field"><label>Срок выполнения</label><input class="bp-input" id="bpDeadline" placeholder="30 дней"></div></div><div class="bp-modal-actions"><button type="button" class="bp-secondary" data-bp-close="bpProjectLayer">Отмена</button><button class="bp-main-btn">Создать объект</button></div></form></div>
 `);
-const support=q('.sidebar-foot'); if(support) support.style.display='none';
-const sidebar=q('.sidebar'); sidebar.insertAdjacentHTML('beforeend',`<div class="bp-session" id="bpSession"><div class="bp-user"><div class="bp-avatar" id="bpAvatar">А</div><div><b id="bpUserName">Администратор</b><span id="bpUserRole">Администратор</span></div></div><div class="bp-session-actions"><button id="bpWorkersBtn">Сотрудники</button><button id="bpLogoutBtn">Выйти</button></div></div>`);
+
+const support=q('.sidebar-foot');
+if(support)support.style.display='none';
 const content=q('.content');
-content.insertAdjacentHTML('afterbegin',`<section class="bp-setup" id="bpSetup"><div class="bp-setup-card"><div class="bp-setup-icon">⌂</div><h2 id="bpSetupTitle">Пока нет объектов</h2><p id="bpSetupText">Создай реальный объект, назначь ответственного и начинай заполнять смету.</p><div id="bpProjectList"></div><button class="bp-main-btn" id="bpNewProject">+ Создать объект</button></div></section><div class="bp-project-bar" id="bpProjectBar" style="display:none"><div><b id="bpBarName"></b><span id="bpBarMeta"></span></div><button id="bpBackProjects">Все объекты</button></div>`);
+content.insertAdjacentHTML('afterbegin',`<section class="bp-setup" id="bpSetup"><div class="bp-setup-card"><div class="bp-setup-icon">⌂</div><h2 id="bpSetupTitle">Пока нет объектов</h2><p id="bpSetupText">Создай объект и начинай заполнять смету.</p><div id="bpProjectList"></div><button class="bp-main-btn" id="bpNewProject">+ Создать объект</button></div></section><div class="bp-project-bar" id="bpProjectBar" style="display:none"><div><b id="bpBarName"></b><span id="bpBarMeta"></span></div><button id="bpBackProjects">Все объекты</button></div>`);
 const originalChildren=[...content.children].filter(x=>x.id!=='bpSetup'&&x.id!=='bpProjectBar');
 const setDashboardVisible=v=>originalChildren.forEach(x=>x.style.display=v?'':'none');
-setDashboardVisible(false);
 const openLayer=id=>document.getElementById(id).classList.add('open');
 const closeLayer=id=>document.getElementById(id).classList.remove('open');
 qa('[data-bp-close]').forEach(b=>b.onclick=()=>closeLayer(b.dataset.bpClose));
-function accessibleProjects(){return currentUser?.role==='admin'?projects:projects.filter(p=>p.assignedUser===currentUser.id)}
-function renderSetup(){currentProject=null;setDashboardVisible(false);q('#bpProjectBar').style.display='none';q('#bpSetup').style.display='grid';const list=accessibleProjects();q('#bpSetupTitle').textContent=list.length?'Мои объекты':'Пока нет объектов';q('#bpSetupText').textContent=list.length?'Выбери объект для работы или создай новый.':'Создай реальный объект, назначь ответственного и начинай заполнять смету.';q('#bpProjectList').innerHTML=list.map(p=>`<button class="bp-project-bar" style="width:100%;text-align:left;margin:8px 0" data-open-project="${p.id}"><div><b>${esc(p.name)}</b><span>${esc(p.address||'Адрес не указан')} · ${fmt(p.contract)}</span></div><span>Открыть →</span></button>`).join('');qa('[data-open-project]').forEach(b=>b.onclick=()=>showProject(b.dataset.openProject))}
-function resetVisibleDemo(){qa('.nav .count').forEach(x=>x.textContent='0');const eye=q('.project-copy .eyebrow');if(eye)eye.textContent='Текущий объект';const factHint=q('.facts')?.closest('.card')?.querySelector('.card-head p');if(factHint)factHint.textContent='Введено при создании объекта';const laborHint=q('#laborBody')?.closest('.card')?.querySelector('.card-head p');if(laborHint)laborHint.textContent='Добавляй реальные работы и расценки';const status=q('.status');if(status)status.innerHTML='<i></i> Новый объект';const meta=q('.project-meta');if(meta)meta.innerHTML='<div><span>Ответственный</span><b>'+esc(workerName(currentProject.assignedUser))+'</b></div><div><span>Срок работ</span><b>'+esc(currentProject.deadline||'Не указан')+'</b></div>';qa('.kpi small').forEach(x=>x.textContent='');const docsHint=q('#docsList')?.closest('.card')?.querySelector('.card-head p');if(docsHint)docsHint.textContent='Файлы текущего объекта';q('#docCount').textContent=(currentProject.docs||[]).length+' файлов';const match=q('.kpis .kpi:nth-child(2) b');if(match)match.textContent=(currentProject.labor||[]).length+' позиций';const review=q('.kpis .kpi:nth-child(3) b');if(review)review.textContent='0 позиций';const risks=q('.kpis .kpi:nth-child(4) b');if(risks)risks.textContent='0 рисков';const docs=q('#docsList');if(docs)docs.innerHTML=(currentProject.docs||[]).length?(currentProject.docs||[]).map(d=>`<div class="doc"><div class="doc-icon">FILE</div><div><b>${esc(d.name)}</b><span>${esc(d.size)}</span></div><span class="doc-status">Добавлен</span></div>`).join(''):'<div class="empty-inline">Документы ещё не загружены</div>';const fact=q('.facts');if(fact)fact.innerHTML=`<div class="fact"><span>Заказчик</span><b>${esc(currentProject.customer||'Не указан')}</b></div><div class="fact"><span>Срок выполнения</span><b>${esc(currentProject.deadline||'Не указан')}</b></div><div class="fact"><span>Ответственный</span><b>${esc(workerName(currentProject.assignedUser))}</b></div>`;const riskList=q('.risk-list');if(riskList)riskList.innerHTML='<div class="empty-inline">Риски ещё не добавлены</div>'}
-function showProject(id){currentProject=projects.find(p=>p.id===id);if(!currentProject)return;q('#bpSetup').style.display='none';setDashboardVisible(true);q('#bpProjectBar').style.display='flex';q('#bpBarName').textContent=currentProject.name;q('#bpBarMeta').textContent=(currentProject.address||'Адрес не указан')+' · '+workerName(currentProject.assignedUser);const h1=q('.page-head h1');if(h1)h1.textContent=currentProject.name;const hp=q('.page-head p');if(hp)hp.textContent=currentProject.address||'Адрес не указан';const ph=q('.project-copy h2');if(ph)ph.textContent=currentProject.name;const pp=q('.project-copy p');if(pp)pp.textContent=currentProject.customer?'Заказчик: '+currentProject.customer:'Заказчик не указан';q('#contractValue').value=currentProject.contract||0;['equipment','logistics','overheadPct','taxPct','riskPct'].forEach(id=>{const el=q('#'+id);if(el)el.value=0});window.bpLabor.splice(0,window.bpLabor.length,...(currentProject.labor||[]));window.bpMaterials.splice(0,window.bpMaterials.length,...(currentProject.materials||[]));window.renderLabor();window.renderMaterials();window.calculate();resetVisibleDemo()}
-async function login(e){e.preventDefault();const login=q('#bpLogin').value.trim().toLowerCase(),h=await hash(q('#bpPassword').value);const user=users.find(u=>u.login.toLowerCase()===login&&u.hash===h);if(!user){q('#bpLoginError').textContent='Неверный логин или пароль';return}currentUser=user;q('#bpLoginError').textContent='';q('#bpAuth').style.display='none';document.body.classList.remove('bp-locked');q('#bpUserName').textContent=user.name;q('#bpUserRole').textContent=user.role==='admin'?'Администратор':'Сотрудник';q('#bpAvatar').textContent=user.name.slice(0,1).toUpperCase();q('#bpWorkersBtn').style.display=user.role==='admin'?'':'none';renderSetup()}
-q('#bpLoginForm').addEventListener('submit',login);
-q('#bpLogoutBtn').onclick=()=>{currentUser=currentProject=null;q('#bpAuth').style.display='grid';document.body.classList.add('bp-locked');q('#bpLoginForm').reset();renderSetup()};
-function openProjectForm(){q('#bpAssignee').innerHTML=users.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('');openLayer('bpProjectLayer')}
+
+function renderSetup(){
+  currentProject=null;
+  setDashboardVisible(false);
+  q('#bpProjectBar').style.display='none';
+  q('#bpSetup').style.display='grid';
+  q('#bpSetupTitle').textContent=projects.length?'Мои объекты':'Пока нет объектов';
+  q('#bpSetupText').textContent=projects.length?'Выбери объект для работы или создай новый.':'Создай объект и начинай заполнять смету.';
+  q('#bpProjectList').innerHTML=projects.map(p=>`<button class="bp-project-bar" style="width:100%;text-align:left;margin:8px 0" data-open-project="${p.id}"><div><b>${esc(p.name)}</b><span>${esc(p.address||'Адрес не указан')} · ${fmt(p.contract)}</span></div><span>Открыть →</span></button>`).join('');
+  qa('[data-open-project]').forEach(b=>b.onclick=()=>showProject(b.dataset.openProject));
+}
+
+function resetVisibleDemo(){
+  qa('.nav .count').forEach(x=>x.textContent='0');
+  const eye=q('.project-copy .eyebrow');if(eye)eye.textContent='Текущий объект';
+  const factHint=q('.facts')?.closest('.card')?.querySelector('.card-head p');if(factHint)factHint.textContent='Введено при создании объекта';
+  const laborHint=q('#laborBody')?.closest('.card')?.querySelector('.card-head p');if(laborHint)laborHint.textContent='Добавляй реальные работы и расценки';
+  const materialsHint=q('#materialBody')?.closest('.card')?.querySelector('.card-head p');if(materialsHint)materialsHint.textContent='Добавляй реальные материалы и цены';
+  const status=q('.status');if(status)status.innerHTML='<i></i> Новый объект';
+  const meta=q('.project-meta');if(meta)meta.innerHTML='<div><span>Заказчик</span><b>'+esc(currentProject.customer||'Не указан')+'</b></div><div><span>Срок работ</span><b>'+esc(currentProject.deadline||'Не указан')+'</b></div>';
+  qa('.kpi small').forEach(x=>x.textContent='');
+  const docsHint=q('#docsList')?.closest('.card')?.querySelector('.card-head p');if(docsHint)docsHint.textContent='Файлы текущего объекта';
+  q('#docCount').textContent=(currentProject.docs||[]).length+' файлов';
+  const match=q('.kpis .kpi:nth-child(2) b');if(match)match.textContent=(currentProject.labor||[]).length+' позиций';
+  const review=q('.kpis .kpi:nth-child(3) b');if(review)review.textContent='0 позиций';
+  const risks=q('.kpis .kpi:nth-child(4) b');if(risks)risks.textContent='0 рисков';
+  const docs=q('#docsList');if(docs)docs.innerHTML=(currentProject.docs||[]).length?(currentProject.docs||[]).map(d=>`<div class="doc"><div class="doc-icon">FILE</div><div><b>${esc(d.name)}</b><span>${esc(d.size)}</span></div><span class="doc-status">Добавлен</span></div>`).join(''):'<div class="empty-inline">Документы ещё не загружены</div>';
+  const fact=q('.facts');if(fact)fact.innerHTML=`<div class="fact"><span>Заказчик</span><b>${esc(currentProject.customer||'Не указан')}</b></div><div class="fact"><span>Срок выполнения</span><b>${esc(currentProject.deadline||'Не указан')}</b></div><div class="fact"><span>Адрес</span><b>${esc(currentProject.address||'Не указан')}</b></div>`;
+  const riskList=q('.risk-list');if(riskList)riskList.innerHTML='<div class="empty-inline">Риски ещё не добавлены</div>';
+}
+
+function showProject(id){
+  currentProject=projects.find(p=>p.id===id);
+  if(!currentProject)return;
+  q('#bpSetup').style.display='none';
+  setDashboardVisible(true);
+  q('#bpProjectBar').style.display='flex';
+  q('#bpBarName').textContent=currentProject.name;
+  q('#bpBarMeta').textContent=currentProject.address||'Адрес не указан';
+  const h1=q('.page-head h1');if(h1)h1.textContent=currentProject.name;
+  const hp=q('.page-head p');if(hp)hp.textContent=currentProject.address||'Адрес не указан';
+  const ph=q('.project-copy h2');if(ph)ph.textContent=currentProject.name;
+  const pp=q('.project-copy p');if(pp)pp.textContent=currentProject.customer?'Заказчик: '+currentProject.customer:'Заказчик не указан';
+  q('#contractValue').value=currentProject.contract||0;
+  const finance=currentProject.finance||{};
+  ['equipment','logistics','overheadPct','taxPct','riskPct'].forEach(id=>{const el=q('#'+id);if(el)el.value=finance[id]??0});
+  window.bpLabor.splice(0,window.bpLabor.length,...(currentProject.labor||[]));
+  window.bpMaterials.splice(0,window.bpMaterials.length,...(currentProject.materials||[]));
+  window.renderLabor();window.renderMaterials();window.calculate();resetVisibleDemo();
+}
+
+const openProjectForm=()=>openLayer('bpProjectLayer');
 q('#bpNewProject').onclick=openProjectForm;
 q('#bpBackProjects').onclick=renderSetup;
-const top=q('.top-actions');if(top){top.insertAdjacentHTML('afterbegin','<button class="secondary" id="bpTopProjects">Объекты</button><button class="primary" id="bpTopNew">+ Новый объект</button>');q('#bpTopProjects').onclick=renderSetup;q('#bpTopNew').onclick=openProjectForm}
-q('#bpProjectForm').onsubmit=e=>{e.preventDefault();const p={id:crypto.randomUUID(),name:q('#bpProjectName').value.trim(),customer:q('#bpCustomer').value.trim(),address:q('#bpAddress').value.trim(),contract:+q('#bpContract').value||0,deadline:q('#bpDeadline').value.trim(),assignedUser:q('#bpAssignee').value,docs:[],labor:[],materials:[]};projects.push(p);saveProjects();e.target.reset();closeLayer('bpProjectLayer');showProject(p.id);window.showToast('Объект создан')};
-function renderWorkers(){q('#bpWorkerList').innerHTML=users.map(u=>`<div class="bp-worker-row"><div><b>${esc(u.name)}</b><br><small>${esc(u.login)} · ${u.role==='admin'?'Администратор':'Сотрудник'}</small></div></div>`).join('')}
-q('#bpWorkersBtn').onclick=()=>{renderWorkers();openLayer('bpWorkersLayer')};
-q('#bpWorkerForm').onsubmit=async e=>{e.preventDefault();const login=q('#bpWorkerLogin').value.trim().toLowerCase();if(users.some(u=>u.login.toLowerCase()===login)){window.showToast('Такой логин уже существует');return}users.push({id:crypto.randomUUID(),name:q('#bpWorkerName').value.trim(),login,hash:await hash(q('#bpWorkerPassword').value),role:'worker'});saveUsers();e.target.reset();renderWorkers();window.showToast('Сотрудник добавлен')};
-const persist=()=>{if(!currentProject)return;currentProject.contract=+q('#contractValue').value||0;currentProject.labor=window.bpLabor.map(x=>({...x}));currentProject.materials=window.bpMaterials.map(x=>({...x}));saveProjects()};
+const top=q('.top-actions');
+if(top){
+  top.insertAdjacentHTML('afterbegin','<button class="secondary" id="bpTopProjects">Объекты</button><button class="primary" id="bpTopNew">+ Новый объект</button>');
+  q('#bpTopProjects').onclick=renderSetup;
+  q('#bpTopNew').onclick=openProjectForm;
+}
+q('#bpProjectForm').onsubmit=e=>{
+  e.preventDefault();
+  const p={id:crypto.randomUUID(),name:q('#bpProjectName').value.trim(),customer:q('#bpCustomer').value.trim(),address:q('#bpAddress').value.trim(),contract:+q('#bpContract').value||0,deadline:q('#bpDeadline').value.trim(),docs:[],labor:[],materials:[],finance:{equipment:0,logistics:0,overheadPct:0,taxPct:0,riskPct:0}};
+  projects.push(p);saveProjects();e.target.reset();closeLayer('bpProjectLayer');showProject(p.id);window.showToast('Объект создан');
+};
+
+const persist=()=>{
+  if(!currentProject)return;
+  currentProject.contract=+q('#contractValue').value||0;
+  currentProject.labor=window.bpLabor.map(x=>({...x}));
+  currentProject.materials=window.bpMaterials.map(x=>({...x}));
+  currentProject.finance={};
+  ['equipment','logistics','overheadPct','taxPct','riskPct'].forEach(id=>currentProject.finance[id]=+q('#'+id).value||0);
+  saveProjects();
+};
 document.addEventListener('input',e=>{if(e.target.matches('.labor-qty,.labor-price,.material-qty,.material-price,.calc-input'))setTimeout(persist,0)});
 ['addLabor','addMaterial'].forEach(id=>q('#'+id)?.addEventListener('click',()=>setTimeout(persist,0)));
 q('#fileInput')?.addEventListener('change',e=>{if(!currentProject)return;currentProject.docs=[...e.target.files].map(f=>({name:f.name,size:Math.max(1,Math.round(f.size/1024))+' КБ'}));saveProjects();setTimeout(resetVisibleDemo,0)});
 q('#reanalyze')?.addEventListener('click',()=>window.showToast('Автоматический ИИ-анализ подключается на серверном этапе'));
 q('#startAnalysis').onclick=()=>window.showToast('Файлы сохранены. Серверный ИИ-анализ пока не подключён');
+
+document.body.classList.remove('bp-locked');
+renderSetup();
 })();
