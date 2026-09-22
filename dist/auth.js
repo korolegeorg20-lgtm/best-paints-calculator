@@ -24,6 +24,9 @@ qa('[data-bp-close]').forEach(b=>b.onclick=()=>closeLayer(b.dataset.bpClose));
 function renderSetup(){
   currentProject=null;
   setDashboardVisible(false);
+  const crumbs=q('.crumbs');if(crumbs)crumbs.innerHTML='<span>Best Paints</span><b>›</b><b>Объекты</b>';
+  qa('.nav .count').forEach(x=>x.textContent='0');
+  ['exportBtn','uploadOpen'].forEach(id=>{const el=q('#'+id);if(el)el.disabled=true});
   q('#bpProjectBar').style.display='none';
   q('#bpSetup').style.display='grid';
   q('#bpSetupTitle').textContent=projects.length?'Мои объекты':'Пока нет объектов';
@@ -57,6 +60,8 @@ function showProject(id){
   q('#bpSetup').style.display='none';
   setDashboardVisible(true);
   q('#bpProjectBar').style.display='flex';
+  const crumbs=q('.crumbs');if(crumbs)crumbs.innerHTML='<span>Объекты</span><b>›</b><b>'+esc(currentProject.name)+'</b>';
+  ['exportBtn','uploadOpen'].forEach(id=>{const el=q('#'+id);if(el)el.disabled=false});
   q('#bpBarName').textContent=currentProject.name;
   q('#bpBarMeta').textContent=currentProject.address||'Адрес не указан';
   const h1=q('.page-head h1');if(h1)h1.textContent=currentProject.name;
