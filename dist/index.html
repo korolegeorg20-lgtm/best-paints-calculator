@@ -32,6 +32,7 @@
     @media(max-width:1100px){.app{grid-template-columns:84px minmax(0,1fr)}.sidebar{padding:22px 12px}.brand{justify-content:center;padding:0 0 28px}.brand-name,.nav-label,.nav button span,.nav a span,.nav .count,.nav .external-mark,.sidebar-foot{display:none}.nav button,.nav a{justify-content:center;padding:13px}.hero-grid{grid-template-columns:1fr}.project-card{min-height:230px}.kpis{grid-template-columns:repeat(2,1fr)}.workspace{grid-template-columns:1fr}.calc-layout{grid-template-columns:1fr}}
     @media(max-width:720px){.app{display:block}.sidebar{display:none}.topbar{padding:0 16px;height:64px}.crumbs span{display:none}.top-actions .secondary{display:none}.content{padding:18px 14px 86px}.page-head{align-items:flex-start}.status{font-size:11px}.hero-grid{display:block}.project-card{min-height:360px}.project-copy{width:100%;padding:22px}.project-photo{inset:53% 0 0}.project-photo:before{background:linear-gradient(180deg,var(--green-dark),transparent 40%)}.economy-card{margin-top:14px}.kpis{grid-template-columns:1fr 1fr;gap:9px}.kpi{padding:13px}.kpi small{display:none}.tabs{width:100%;overflow:auto}.tabs button{white-space:nowrap}.calc-form{grid-template-columns:1fr}.field.full{grid-column:auto}.mobile-nav{position:fixed;display:flex;bottom:0;left:0;right:0;height:70px;background:rgba(255,255,255,.96);border-top:1px solid var(--line);z-index:30;justify-content:space-around;align-items:center;overflow-x:auto}.mobile-nav button,.mobile-nav a{border:0;background:none;color:var(--muted);font-size:10px;display:grid;gap:3px;place-items:center;min-width:64px}.mobile-nav button.active{color:var(--green)}.mobile-nav svg{width:20px}.page-head h1{font-size:23px}.only-mobile{display:block}}
   </style>
+<link rel="stylesheet" href="auth.css">
 </head>
 <body>
 <div class="app">
@@ -44,7 +45,6 @@
       <button data-tab="materials"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4.5 7.5 7.5 4 7.5-4M12 21v-9.5"/></svg><span>Материалы</span><i class="count">7</i></button>
       <button data-tab="economics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 20V10m5 10V4m6 16v-7m5 7V7"/></svg><span>Экономика</span></button>
       <button data-tab="risks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3 2.7 19h18.6L12 3Z"/><path d="M12 9v4m0 3v.1"/></svg><span>Условия и риски</span><i class="count">3</i></button>
-      <a href="https://smeta-bestpaints.ru/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 3h14v18H5z"/><path d="M8 7h8M8 11h8M8 15h3m3 0h2"/></svg><span>Готовая смета</span><i class="external-mark">→</i></a>
     </nav>
     <div class="sidebar-foot"><div class="support"><b>Нужна помощь?</b><small>Проверь спорные позиции вместе со сметчиком.</small><button id="helpBtn">Открыть подсказки</button></div></div>
   </aside>
@@ -77,7 +77,7 @@
   </main>
 </div>
 
-<nav class="mobile-nav"><button class="active" data-tab="overview">⌂<span>Обзор</span></button><button data-tab="labor">≡<span>Работы</span></button><button data-tab="materials">◇<span>Материалы</span></button><button data-tab="economics">↗<span>Экономика</span></button><button data-tab="risks">!<span>Риски</span></button><a href="https://smeta-bestpaints.ru/">▤<span>Смета</span></a></nav>
+<nav class="mobile-nav"><button class="active" data-tab="overview">⌂<span>Обзор</span></button><button data-tab="labor">≡<span>Работы</span></button><button data-tab="materials">◇<span>Материалы</span></button><button data-tab="economics">↗<span>Экономика</span></button><button data-tab="risks">!<span>Риски</span></button></nav>
 
 <div class="upload-overlay" id="uploadModal" role="dialog" aria-modal="true" aria-labelledby="uploadTitle"><div class="modal"><div class="modal-top"><div><h2 id="uploadTitle">Добавить документы</h2><p style="margin:4px 0 0;color:var(--muted);font-size:13px">PDF, DOCX, XLSX, JPG или PNG</p></div><button class="close" id="uploadClose" aria-label="Закрыть">×</button></div><div class="drop" id="dropZone"><div class="drop-icon">↑</div><b>Перетащи файлы сюда</b><p>или выбери документы на компьютере</p><label for="fileInput">Выбрать файлы</label><input id="fileInput" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"></div><div class="file-list" id="fileList"></div><div class="progress-box" id="progressBox"><div class="progress-track"><div class="progress-bar" id="progressBar"></div></div><div class="progress-text"><span id="progressLabel">Распознаю документы…</span><b id="progressPct">0%</b></div></div><div class="modal-actions"><button class="secondary" id="cancelUpload">Отмена</button><button class="primary" id="startAnalysis">Запустить анализ</button></div></div></div>
 <div class="toast" id="toast">Готово</div>
@@ -85,23 +85,8 @@
 <script>
   const fmt = n => new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Math.round(n))+' ₽';
   const compact = n => (n/1000000).toLocaleString('ru-RU',{maximumFractionDigits:2})+' млн';
-  const labor = [
-    {src:'Шлифование деревянных поверхностей фасада механизированным способом',name:'Шлифовка фасада',unit:'м²',qty:680,price:430,conf:98},
-    {src:'Обработка древесины антисептическими составами за один проход',name:'Антисептирование',unit:'м²',qty:680,price:95,conf:96},
-    {src:'Огрунтовка деревянных поверхностей перед окраской',name:'Грунтование',unit:'м²',qty:680,price:120,conf:94},
-    {src:'Окраска фасадов лессирующими составами в два слоя',name:'Покраска фасада · 2 слоя',unit:'м²',qty:680,price:520,conf:99},
-    {src:'Герметизация межвенцовых соединений эластичными составами',name:'Тёплый шов',unit:'пог. м',qty:420,price:310,conf:91},
-    {src:'Устройство и разборка наружных инвентарных лесов',name:'Монтаж / демонтаж лесов',unit:'м²',qty:680,price:160,conf:76}
-  ];
-  const materials = [
-    {name:'Шлифовальные круги P60/P80',use:'Подготовка древесины',vendor:'ПрофАбразив',unit:'шт.',qty:180,price:145},
-    {name:'Антисептик для дерева',use:'Биозащита фасада',vendor:'ЛКМ Маркет',unit:'л',qty:95,price:690},
-    {name:'Грунт глубокого проникновения',use:'Базовый слой',vendor:'Профи-ЛКМ',unit:'л',qty:82,price:780},
-    {name:'Фасадная лазурь Premium',use:'Финиш · 2 слоя',vendor:'Профи-ЛКМ',unit:'л',qty:272,price:2690},
-    {name:'Герметик «тёплый шов»',use:'Межвенцовые швы',vendor:'Тёплый дом',unit:'туба',qty:196,price:940},
-    {name:'Укрывная плёнка 200 мкм',use:'Защита окон и участка',vendor:'СтройСнаб',unit:'рулон',qty:18,price:2350},
-    {name:'Кисти, валики, малярная лента',use:'Расходные материалы',vendor:'СтройСнаб',unit:'компл.',qty:1,price:38400}
-  ];
+  const labor = window.bpLabor = [];
+  const materials = window.bpMaterials = [];
   const state = {laborTotal:0,materialsTotal:0,scenario:'base'};
   function renderLabor(){
     document.getElementById('laborBody').innerHTML=labor.map((r,i)=>`<tr><td class="source-name">${r.src}</td><td class="mapped"><b>${r.name}</b><span>Внутренний прайс · BP-${String(i+1).padStart(3,'0')}</span></td><td>${r.unit}</td><td><input aria-label="Объём ${r.name}" class="num-input labor-qty" data-i="${i}" type="number" value="${r.qty}"></td><td><input aria-label="Цена ${r.name}" class="num-input labor-price" data-i="${i}" type="number" value="${r.price}"></td><td><span class="confidence ${r.conf>85?'high':'mid'}">${r.conf}%</span></td><td class="money" id="labor-sum-${i}">${fmt(r.qty*r.price)}</td></tr>`).join('');
@@ -140,5 +125,6 @@
     Promise.resolve(document.modelContext.registerTool({name:'set_financial_inputs',title:'Изменить параметры экономики',description:'Обновляет финансовые параметры и сразу пересчитывает видимую экономику объекта.',inputSchema:{type:'object',properties:{contractValue:{type:'number',minimum:0},equipment:{type:'number',minimum:0},logistics:{type:'number',minimum:0},overheadPct:{type:'number',minimum:0},taxPct:{type:'number',minimum:0},riskPct:{type:'number',minimum:0}},additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:input=>{const allowed=['contractValue','equipment','logistics','overheadPct','taxPct','riskPct'];let changed=0;for(const key of allowed){if(input[key]!==undefined){if(typeof input[key]!=='number'||input[key]<0)throw new Error('Некорректное значение '+key);document.getElementById(key).value=input[key];changed++}}if(!changed)throw new Error('Нужно передать хотя бы один параметр');calculate();switchTab('economics');return{updated:true,fieldsChanged:changed,profit:document.getElementById('resProfit').textContent,margin:document.getElementById('resMargin').textContent}}})).catch(toolErrors);
   }
 </script>
+<script src="auth.js"></script>
 </body>
 </html>
