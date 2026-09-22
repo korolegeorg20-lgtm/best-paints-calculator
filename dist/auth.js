@@ -1,13 +1,16 @@
 (()=>{
 const PKEY='bp_projects_v3';
 let projects=JSON.parse(localStorage.getItem(PKEY)||'[]');
-let currentProject=null,pendingDocs=[];
+let currentProject=null,pendingFiles=[];
 const q=s=>document.querySelector(s),qa=s=>[...document.querySelectorAll(s)];
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 const fmt=n=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Math.round(+n||0))+' ₽';
 const dateText=v=>v?new Date(v+'T00:00:00').toLocaleDateString('ru-RU'):'не указан';
 const fileType=name=>(String(name).split('.').pop()||'FILE').slice(0,4).toUpperCase();
 const saveProjects=()=>localStorage.setItem(PKEY,JSON.stringify(projects));
+const openFileDb=()=>new Promise((resolve,reject)=>{const request=indexedDB.open('bp_tender_files_v1',1);request.onupgradeneeded=()=>request.result.createObjectStore('files',{keyPath:'id'});request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)});
+const storeTenderFiles=async(projectId,files)=>{const db=await openFileDb();const saved=[];await new Promise((resolve,reject)=>{const tx=db.transaction('files','readwrite'),store=tx.objectStore('files');files.forEach(file=>{const id=crypto.randomUUID();store.put({id,projectId,name:file.name,size:file.size,type:file.type,lastModified:file.lastModified,blob:file});saved.push({id,name:file.name,size:Math.max(1,Math.round(file.size/1024))+' КБ',type:file.type||''})});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});db.close();return saved};
+const downloadTenderFile=async id=>{const db=await openFileDb();const record=await new Promise((resolve,reject)=>{const request=db.transaction('files').objectStore('files').get(id);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)});db.close();if(!record){window.showToast('Файл не найден в этом браузере');return}const url=URL.createObjectURL(record.blob),a=document.createElement('a');a.href=url;a.download=record.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 
 document.body.insertAdjacentHTML('afterbegin',`
 <div class="bp-layer" id="bpProjectLayer"><form class="bp-modal" id="bpProjectForm"><div class="bp-modal-head"><div><h2>Новый тендер</h2><p style="margin:3px 0;color:#66706b;font-size:12px">Создай карточку и загрузи исходные документы</p></div><button type="button" class="bp-close" data-bp-close="bpProjectLayer">×</button></div><div class="bp-form-grid"><div class="bp-field full"><label>Название тендера / объекта</label><input class="bp-input" id="bpProjectName" required placeholder="Например: Покраска домов в КП Лесной"></div><div class="bp-field"><label>Номер тендера</label><input class="bp-input" id="bpTenderNumber" placeholder="Например: Т-2026-014"></div><div class="bp-field"><label>Заказчик</label><input class="bp-input" id="bpCustomer"></div><div class="bp-field full"><label>Адрес объекта</label><input class="bp-input" id="bpAddress"></div><div class="bp-field"><label>Стоимость договора, ₽</label><input class="bp-input" id="bpContract" type="number" min="0" value="0"></div><div class="bp-field"><label>Срок подачи заявки</label><input class="bp-input" id="bpSubmissionDeadline" type="date"></div><div class="bp-field full"><label>Срок выполнения работ</label><input class="bp-input" id="bpDeadline" placeholder="Например: 45 календарных дней"></div></div><div class="bp-modal-actions"><button type="button" class="bp-secondary" data-bp-close="bpProjectLayer">Отмена</button><button class="bp-main-btn">Создать тендер и загрузить документы</button></div></form></div>
@@ -55,7 +58,7 @@ function resetVisibleDemo(){
   const match=q('.kpis .kpi:nth-child(2) b');if(match)match.textContent=(currentProject.labor||[]).length+' позиций';
   const review=q('.kpis .kpi:nth-child(3) b');if(review)review.textContent='0 позиций';
   const risks=q('.kpis .kpi:nth-child(4) b');if(risks)risks.textContent='0 рисков';
-  const docs=q('#docsList');if(docs)docs.innerHTML=docsCount?(currentProject.docs||[]).map(d=>`<div class="doc"><div class="doc-icon">${fileType(d.name)}</div><div><b>${esc(d.name)}</b><span>${esc(d.size)}</span></div><span class="doc-status">В тендере</span></div>`).join(''):'<div class="empty-inline">Загрузи договор, ТЗ, локальную смету, график и приложения</div>';
+  const docs=q('#docsList');if(docs){docs.innerHTML=docsCount?(currentProject.docs||[]).map(d=>`<div class="doc"><div class="doc-icon">${fileType(d.name)}</div><div><b>${esc(d.name)}</b><span>${esc(d.size)}</span></div>${d.id?`<button class="ghost" type="button" data-download-doc="${d.id}">Скачать</button>`:'<span class="doc-status">Добавлен ранее</span>'}</div>`).join(''):'<div class="empty-inline">Загрузи договор, ТЗ, локальную смету, график и приложения</div>';qa('[data-download-doc]').forEach(b=>b.onclick=()=>downloadTenderFile(b.dataset.downloadDoc))}
   const fact=q('.facts');if(fact)fact.innerHTML=`<div class="fact"><span>Номер тендера</span><b>${esc(currentProject.tenderNumber||'Не указан')}</b></div><div class="fact"><span>Срок подачи заявки</span><b>${esc(dateText(currentProject.submissionDeadline))}</b></div><div class="fact"><span>Заказчик</span><b>${esc(currentProject.customer||'Не указан')}</b></div><div class="fact"><span>Срок выполнения</span><b>${esc(currentProject.deadline||'Не указан')}</b></div>`;
   const riskList=q('.risk-list');if(riskList)riskList.innerHTML='<div class="empty-inline">Риски ещё не добавлены</div>';
 }
@@ -108,10 +111,10 @@ const persist=()=>{
 };
 document.addEventListener('input',e=>{if(e.target.matches('.labor-qty,.labor-price,.material-qty,.material-price,.calc-input'))setTimeout(persist,0)});
 ['addLabor','addMaterial'].forEach(id=>q('#'+id)?.addEventListener('click',()=>setTimeout(persist,0)));
-['uploadOpen','addDocs'].forEach(id=>q('#'+id)?.addEventListener('click',()=>{pendingDocs=[];q('#fileInput').value='';q('#fileList').innerHTML=''}));
-q('#fileInput')?.addEventListener('change',e=>{if(!currentProject)return;pendingDocs=[...e.target.files].map(f=>({name:f.name,size:Math.max(1,Math.round(f.size/1024))+' КБ',type:f.type||''}))});
+['uploadOpen','addDocs'].forEach(id=>q('#'+id)?.addEventListener('click',()=>{pendingFiles=[];q('#fileInput').value='';q('#fileList').innerHTML=''}));
+q('#fileInput')?.addEventListener('change',e=>{if(!currentProject)return;pendingFiles=[...e.target.files]});
 q('#reanalyze')?.addEventListener('click',()=>window.showToast('Автоматический ИИ-анализ подключается на серверном этапе'));
-q('#startAnalysis').onclick=()=>{if(!currentProject)return;if(!pendingDocs.length){window.showToast('Сначала выбери документы тендера');return}const existing=new Set((currentProject.docs||[]).map(d=>d.name+'|'+d.size));currentProject.docs=[...(currentProject.docs||[]),...pendingDocs.filter(d=>!existing.has(d.name+'|'+d.size))];saveProjects();q('#uploadModal').classList.remove('open');q('#fileInput').value='';q('#fileList').innerHTML='';pendingDocs=[];resetVisibleDemo();window.switchTab('overview');window.showToast('Документы добавлены в тендер')};
+q('#startAnalysis').onclick=async()=>{if(!currentProject)return;if(!pendingFiles.length){window.showToast('Сначала выбери документы тендера');return}const button=q('#startAnalysis');button.disabled=true;button.textContent='Сохраняю…';try{const saved=await storeTenderFiles(currentProject.id,pendingFiles),existing=new Set((currentProject.docs||[]).map(d=>d.name+'|'+d.size));currentProject.docs=[...(currentProject.docs||[]),...saved.filter(d=>!existing.has(d.name+'|'+d.size))];saveProjects();q('#uploadModal').classList.remove('open');q('#fileInput').value='';q('#fileList').innerHTML='';pendingFiles=[];resetVisibleDemo();window.switchTab('overview');window.showToast('Документы сохранены в тендере')}catch(error){console.error(error);window.showToast('Не удалось сохранить документы')}finally{button.disabled=false;button.textContent='Добавить в тендер'}};
 
 document.body.classList.remove('bp-locked');
 renderSetup();

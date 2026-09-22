@@ -125,6 +125,6 @@
     Promise.resolve(document.modelContext.registerTool({name:'set_financial_inputs',title:'Изменить параметры экономики',description:'Обновляет финансовые параметры и сразу пересчитывает видимую экономику объекта.',inputSchema:{type:'object',properties:{contractValue:{type:'number',minimum:0},equipment:{type:'number',minimum:0},logistics:{type:'number',minimum:0},overheadPct:{type:'number',minimum:0},taxPct:{type:'number',minimum:0},riskPct:{type:'number',minimum:0}},additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:input=>{const allowed=['contractValue','equipment','logistics','overheadPct','taxPct','riskPct'];let changed=0;for(const key of allowed){if(input[key]!==undefined){if(typeof input[key]!=='number'||input[key]<0)throw new Error('Некорректное значение '+key);document.getElementById(key).value=input[key];changed++}}if(!changed)throw new Error('Нужно передать хотя бы один параметр');calculate();switchTab('economics');return{updated:true,fieldsChanged:changed,profit:document.getElementById('resProfit').textContent,margin:document.getElementById('resMargin').textContent}}})).catch(toolErrors);
   }
 </script>
-<script src="auth.js?v=4"></script>
+<script src="auth.js?v=5"></script>
 </body>
 </html>
